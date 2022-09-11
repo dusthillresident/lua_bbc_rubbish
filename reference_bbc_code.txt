@@ -1,0 +1,131 @@
+REM  This is a comment. Comments in BBC BASIC start with 'REM'.
+REM  This is the code from my tweet mostly intact as it was in the tweet, but with some changes to make it a little more understandable.
+REM  Various programming practises found in here (such as usually not declaring local variables as local and using tiny not very descriptive variable names etc) are things I would not usually do, I just do them when I have to fit code in a very tiny space.
+
+REM ----------------------------
+
+REM  This is the 'MODE' command. It takes one value, a number representing the mode you want. We're choosing MODE 1, 320x256 pixels with 4 colours.
+MODE 1
+
+REM  Now, here we have a VDU command that changes one of the colours of the 4 colour palette. 
+REM  'VDU' stands for 'Video Display Unit'.
+REM  The VDU command is essentially like putchar() in C, like, sending a character to the terminal/console.
+REM  The BBC computer and Acorn's computers have this thing called the "VDU driver",
+REM  when you are printing text to the screen or drawing graphics to the screen in BBC BASIC,
+REM  you're going through the VDU driver (well, unless you're poking stuff into the video memory manually, heh)
+REM  The various graphics drawing command keywords basically just 'print' bytes which the VDU driver interprets as an instruction to do some specific graphics operation.
+REM  In some cases, keywords have not been defined/implemented for certain operations, so we have to send bytes to the VDU drivers ourself manually.
+REM  The command is as follows:
+REM   [change_colour_in_palette_opcode], [logical colour to be changed], [physical colour to change it to], [three bytes which are totally unused aka "reserved for future expansions"]
+REM  So. We are changing logical colour 0 (which is the background colour, normally Black) to physical colour 4 (which is Blue)
+VDU 19,0,4,0,0,0
+
+REM  This is the 'GCOL' command, it takes two values: [plotting mode], [colour]
+REM  The first value specifies the plotting mode, which can be normal, AND, OR, XOR. I forget what numbers correspond to which actions, but I remember at least that '0' is normal (ie, it will just set the pixel to the colour you select)
+REM  So. We are choosing normal plotting mode, with colour 1.
+GCOL 0,1
+REM  Here we declare/set two variables. 'R' is the radius of our tone dot circles and 'h' is the height of the screen (BBC BASIC uses a virtual screen resolution of 1280x1024, regardless of what the physical screen resolution is)
+R=100: h=1024
+
+REM  Here, we fill the screen with the tone dots pattern, made of filled circles. This is gonna be the backdrop of our picture.
+REM  We will loop from 0 to 1300 (just a bit off the edge of the screen, to make sure the full width of the screen is filled with our pattern)
+REM  and we'll also loop from 0 to 'h'.
+REM  We'll call our procedure PROCc(x, y, r) to draw the filled circles.
+
+FOR x=0 TO 1300 STEP R
+ FOR y=0 TO h STEP R
+REM  Here we call the procedure for drawing the filled circles.
+REM  This may seem strange to you that we are calling a procedure before we have encountered its declaration. This is a key difference between BBC BASIC and most other programming languages: definitions of functions and procedures are scanned and processed all at once at the beginning of program execution. And you must not allow program execution to run into a function/procedure definition because it will start executing the body of your FN/PROC which is almost certainly not what you want (though sometimes you can abuse that behaviour to make a program tweet shorter)
+  PROCc(    x + ( y / R AND 1) * R * 0.5,    y,    ( 1 - y / h) * R * 0.7    )
+ NEXT
+NEXT
+
+REM  This VDU command makes it so that text characters are 'drawn' as graphics at the current location of the graphics cursor.
+REM  This is necessary for our PROCC to work properly as it draws 'HELLO' in the centre of the pattern it draws.
+VDU 5
+GCOL 0,2
+PROCC( 300, 750, 512 )
+GCOL 0,3
+PROCC( 960, 300, 512 )
+
+REM  Move the graphics cursor to x=0,y=0 so that when execution finishes, the '>' prompt won't appear in the middle of our picture.
+MOVE0,0
+
+REM  Now we end program execution so that it won't run along into our PROC definitions and start doing weird stuff we don't want.
+END
+
+REM  Now we will define some PROC procedures and an FN function.
+REM  You can define PROCs/FNs that take paramters and ones that don't take parameters.
+REM  Here are some example definitions:
+
+REM  DEF PROCprocedure_name(parameter1,parameter2,etc)
+REM  ENDPROC
+
+REM  DEF PROCthisTakesNoParams
+REM  ENDPROC
+
+REM  DEF FNsomefunction(a,b)=a+b
+
+REM  DEF FNgarbo
+REM  =1234
+
+REM  That's the end of those examples. Now let's proceed.....
+
+REM  This procedure draws a filled circle at x,y of radius r.
+DEF PROCc( x, y, r )
+ REM  If the absolute size of the radius is less than one pixel, let's set to one pixel.
+ REM  ( The screen res is 320x256 and the BBC operates on a virtual res of 1280x1024, so 1 pixel = 4 virtual pixels.
+ REM    That's why this if checks if r<4 and sets it to 4, it is also why we loop with a STEP of 4 )
+ IF ABS r<4: r=4
+ FOR i = -r TO r STEP 4
+  REM  We're using 'ACS' (arc-cosine) to draw this circle AHhhhhhhhhhhhh... I think you probably understand how that works (and better than I do haha) so I won't explain that specifically, but I will explain some details about this line of code because there are differences here from how things work in other programming languages.
+  REM  As you see, SIN has no brackets; with some of the built in functions in BBC BASIC, you don't strictly have to use them.
+  REM  When that's the case, if you don't use brackets, it will behave like an unary operator.
+  REM  So in this case, SIN receives the output of ACS, which is receving the result of '(i/r)'. 
+  REM  You could write this expression like r*SIN(ACS(i/r)) and it would behave the same.
+  REM  You could also write it like SINACS(i/r)*r and it'd behave the same, though perhaps it'd look less nice/less clear.
+  l = r * SIN ACS ( i/r )
+  REM  Move the graphics cursor to the left side of the width of this circle given this y position.
+  MOVE x-l, y+i
+  REM  Then move the graphics cursor to the right side of the circle, drawing a line along the way.
+  DRAW x+l, y+i
+  REM  It's esentially like putting your pen on a piece of paper at x1,y1 and then drawing a line from there to x2,y2
+ NEXT
+ENDPROC
+
+REM  Let's draw a fun pattern using the filled circle drawing routine we just made.
+DEF PROCC(X,Y,L)
+ FOR J=0 TO 15
+  FOR I=0 TO 15
+   M = J/16
+   A = I/16*PI*2 + J/15*PI
+   PROCc( X+M*L*COS A, Y+M*L*SIN A, L*(1-M^2)*0.04 )
+  NEXT
+ NEXT
+ REM  The semicolons tell the PRINT statement not to do newline/linefeed or something like that.
+ GCOL3,3: MOVE X-80, Y+10: PRINT ;FNs;
+ENDPROC
+
+REM  This function generates our string.
+DEF FNs
+ REM  We will seed the random number generator to make it generate our "HELLO" string.
+ REM  You seed it by passing a negative number to RND().
+ REM  Unfortunately, even though we're just seeding the rng, we can't call RND() as if it's a command.
+ REM  We have to evalute it as a function/value. You could assign it to a scratch variable like A=RND(-1)
+ REM  but I elected to use an IF statement because that's like one less character or something.
+ REM  When you're giving RND() a negative number, it will just return that number, so the IF statement will always execute.
+ REM  The way IF statements work in BBC BASIC 2 (the version on the BBC Micro) is that, after testing the condition, if true, everything on the rest of the line after the IF is executed until it reaches 'ELSE'. If false, it searches for an ELSE on the line and executes the rest after that.
+ IF RND(-17529)
+ REM  Here we use the LOCAL keyword to declare a local string variable 's$'. This will contain our HELLO string that we'll return from the function. 
+ REM  For the most part in these tweet code programs I don't declare local variables because that's expensive for space, but here it becomes necessary because otherwise, string variable 's$' will be left containing whatever was on it before. When you declare a local variable, its contents are initialised to 0 in the case of numbers or an empty string for strings.
+ REM  I'd also like to explain, in BBC BASIC, the type of a variable is decided by a character at the end of the name. For floats (aka 'real' numbers) there is no ending character, so variables are floats by default. For strings that character is '$', for integers it's '%'.
+ REM  This would be an integer variable:    variableName%
+ REM  This would be a string variable:      variableName$
+ REM  This would be a 'real' variable:      variableName
+ LOCAL s$
+ REM  Let's get five *completely random* letters in the range 1 ('A') to 19 ('S') and store them in our string variable 's$'
+ FOR i= 1 TO 5
+  s$ = s$ + CHR$( 64+RND(15) )
+ NEXT
+ REM  And then we use 's$' as the return value of our function. (in BBC BASIC, using '=' as a command is how we return a value from a function.
+=s$

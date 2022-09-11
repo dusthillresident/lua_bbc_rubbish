@@ -1,0 +1,51 @@
+
+MODE 1
+
+VDU 19,0,4,0,0,0
+
+GCOL 0,1
+R=100: h=1024
+
+FOR x=0 TO 1300 STEP R
+ FOR y=0 TO h STEP R
+  PROCc(    x + ( y / R AND 1) * R * 0.5,    y,    ( 1 - y / h) * R * 0.7    )
+ NEXT
+NEXT
+
+VDU 5
+GCOL 0,2
+PROCC( 300, 750, 512 )
+GCOL 0,3
+PROCC( 960, 300, 512 )
+
+MOVE0,0
+
+END
+
+DEF PROCc( x, y, r )
+ IF ABS r<4: r=4
+ FOR i = -r TO r STEP 4
+  l = r * SIN ACS ( i/r )
+  MOVE x-l, y+i
+  DRAW x+l, y+i
+ NEXT
+ENDPROC
+
+DEF PROCC(X,Y,L)
+ FOR J=0 TO 15
+  FOR I=0 TO 15
+   M = J/16
+   A = I/16*PI*2 + J/15*PI
+   PROCc( X+M*L*COS A, Y+M*L*SIN A, L*(1-M^2)*0.04 )
+  NEXT
+ NEXT
+ GCOL3,3: MOVE X-80, Y+10: PRINT ;FNs;
+ENDPROC
+
+DEF FNs
+ IF RND(-17529)
+ LOCAL s$
+ FOR i= 1 TO 5
+  s$ = s$ + CHR$( 64+RND(15) )
+ NEXT
+=s$
